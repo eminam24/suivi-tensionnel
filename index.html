@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<!-- saved from url=(0052)file:///Users/emilia/Downloads/suivi_tensionnel.html -->
+<html lang="fr"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi Tensionnel</title>
+<script src="./Suivi Tensionnel_files/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Bricolage+Grotesque:wght@700;800&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #070b14;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 860px;
+    background: linear-gradient(160deg, #0d1117 60%, #111827 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 40px 44px 36px;
+    box-shadow: 0 32px 100px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+    animation: fadeUp 0.7s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(20px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  h1 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #f1f5f9;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: #475569;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .legend-line {
+    width: 28px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 340px;
+    margin-bottom: 8px;
+  }
+
+  /* Treatment band */
+  .treatment-band {
+    position: relative;
+    height: 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .band-loxen {
+    position: absolute;
+    left: 0%; width: 100%;
+    height: 100%;
+    background: #f97316;
+    opacity: 0.3;
+  }
+  .band-irb75 {
+    position: absolute;
+    /* starts at day index 2 out of 7 segments → 2/7 * 100% */
+    left: 28.57%;
+    width: 71.43%;
+    height: 100%;
+    background: #a78bfa;
+    opacity: 0.45;
+  }
+  .band-irb150 {
+    position: absolute;
+    left: 100%;
+    width: 0%;
+    height: 100%;
+    background: #34d399;
+    opacity: 0.8;
+  }
+
+  /* Treatment cards */
+  .treatments {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .treat-card {
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .treat-date {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    font-weight: 600;
+  }
+
+  .treat-label {
+    font-size: 12px;
+    color: #cbd5e1;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  /* Tooltip */
+  #tooltip {
+    position: fixed;
+    background: #0d1117;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 100;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    min-width: 180px;
+  }
+  #tooltip.visible { opacity: 1; }
+  .tt-date { color: #94a3b8; font-size: 12px; margin-bottom: 8px; letter-spacing:1px; }
+  .tt-values { display: flex; gap: 16px; margin-bottom: 8px; }
+  .tt-val { text-align: center; }
+  .tt-val-num { font-size: 22px; font-weight: 700; line-height: 1; }
+  .tt-val-lbl { font-size: 10px; letter-spacing: 1px; margin-bottom: 2px; }
+  .tt-sep { color: rgba(255,255,255,0.15); font-size: 20px; align-self: center; }
+  .tt-treatments { border-top: 1px solid rgba(255,255,255,0.07); padding-top: 8px; }
+  .tt-treat { font-size: 11px; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="title-row">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 21C12 21 3 13.5 3 8a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-9 13-9 13z" fill="#f87171" opacity=".9"></path>
+        </svg>
+        <h1>Suivi Tensionnel</h1>
+      </div>
+      <div class="subtitle">11 – 18 Février · Pression artérielle (mmHg)</div>
+    </div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-line" style="background:#f87171;"></div>
+        <span>Systolique</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-line" style="background:#60a5fa;"></div>
+        <span>Diastolique</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-wrap">
+    <canvas id="bpChart" width="1540" height="680" style="display: block; box-sizing: border-box; height: 340px; width: 770px;"></canvas>
+  </div>
+
+  <!-- Treatment band -->
+  <div class="treatment-band">
+    <div class="band-loxen"></div>
+    <div class="band-irb75"></div>
+  </div>
+
+  <!-- Treatment cards -->
+  <div class="treatments">
+    <div class="treat-card" style="background:rgba(249,115,22,0.08); border:1px solid rgba(249,115,22,0.25);">
+      <div class="treat-date" style="color:#f97316;">Dès 11/02</div>
+      <div class="treat-label">Loxen 20 mg / 6h</div>
+    </div>
+    <div class="treat-card" style="background:rgba(167,139,250,0.08); border:1px solid rgba(167,139,250,0.25);">
+      <div class="treat-date" style="color:#a78bfa;">Dès 13/02</div>
+      <div class="treat-label">+ Irbesartan 75 mg/j</div>
+    </div>
+    <div class="treat-card" style="background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.25);">
+      <div class="treat-date" style="color:#34d399;">18/02 — Relai</div>
+      <div class="treat-label">Irbesartan 150 mg/j seul<br><span style="font-size:10px;color:#475569;">(arrêt Loxen)</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip" class="visible" style="left: 705px; top: 512px;">
+  <div class="tt-date" id="tt-date">14/02</div>
+  <div class="tt-values">
+    <div class="tt-val">
+      <div class="tt-val-lbl" style="color:#f87171;">SYSTOLIQUE</div>
+      <div class="tt-val-num" style="color:#f87171;" id="tt-sys">133</div>
+    </div>
+    <div class="tt-sep">/</div>
+    <div class="tt-val">
+      <div class="tt-val-lbl" style="color:#60a5fa;">DIASTOLIQUE</div>
+      <div class="tt-val-num" style="color:#60a5fa;" id="tt-dia">83</div>
+    </div>
+  </div>
+  <div class="tt-treatments" id="tt-treats"><div class="tt-treat" style="color:#f97316">🟠 Loxen 20 mg / 6h</div><div class="tt-treat" style="color:#a78bfa">🟣 Irbesartan 75 mg/j</div></div>
+</div>
+
+<script>
+const labels = ["11/02","12/02","13/02","14/02","15/02","16/02","17/02","18/02"];
+const sys    = [162, 164, 134, 133, 137, 138, 134, 127];
+const dia    = [111,  99,  83,  83,  83,  73,  79,  84];
+
+const dayTreatments = [
+  ["🟠 Loxen 20 mg / 6h"],
+  ["🟠 Loxen 20 mg / 6h"],
+  ["🟠 Loxen 20 mg / 6h", "🟣 + Irbesartan 75 mg/j"],
+  ["🟠 Loxen 20 mg / 6h", "🟣 Irbesartan 75 mg/j"],
+  ["🟠 Loxen 20 mg / 6h", "🟣 Irbesartan 75 mg/j"],
+  ["🟠 Loxen 20 mg / 6h", "🟣 Irbesartan 75 mg/j"],
+  ["🟠 Loxen 20 mg / 6h", "🟣 Irbesartan 75 mg/j"],
+  ["🟢 Irbesartan 150 mg/j (relai)"],
+];
+
+const treatColors = {
+  "🟠 Loxen 20 mg / 6h": "#f97316",
+  "🟣 + Irbesartan 75 mg/j": "#a78bfa",
+  "🟣 Irbesartan 75 mg/j": "#a78bfa",
+  "🟢 Irbesartan 150 mg/j (relai)": "#34d399",
+};
+
+// Vertical line plugin for treatment changes
+const verticalLinePlugin = {
+  id: 'verticalLines',
+  afterDraw(chart) {
+    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+    const changeIndices = [0, 2, 7]; // 11/02, 13/02, 18/02
+    const colors = ['rgba(249,115,22,0.5)', 'rgba(167,139,250,0.5)', 'rgba(52,211,153,0.5)'];
+    changeIndices.forEach((idx, i) => {
+      const xPos = x.getPixelForValue(idx);
+      ctx.save();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = colors[i];
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xPos, top);
+      ctx.lineTo(xPos, bottom);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+};
+
+const ctx = document.getElementById('bpChart').getContext('2d');
+
+// Gradient fills
+const gradSys = ctx.createLinearGradient(0, 0, 0, 320);
+gradSys.addColorStop(0, 'rgba(248,113,113,0.18)');
+gradSys.addColorStop(1, 'rgba(248,113,113,0)');
+
+const gradDia = ctx.createLinearGradient(0, 0, 0, 320);
+gradDia.addColorStop(0, 'rgba(96,165,250,0.12)');
+gradDia.addColorStop(1, 'rgba(96,165,250,0)');
+
+const chart = new Chart(ctx, {
+  type: 'line',
+  plugins: [verticalLinePlugin],
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Systolique',
+        data: sys,
+        borderColor: '#f87171',
+        borderWidth: 2.5,
+        backgroundColor: gradSys,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 6,
+        pointBackgroundColor: '#f87171',
+        pointBorderColor: '#070b14',
+        pointBorderWidth: 2,
+        pointHoverRadius: 8,
+        pointHoverBackgroundColor: '#fca5a5',
+      },
+      {
+        label: 'Diastolique',
+        data: dia,
+        borderColor: '#60a5fa',
+        borderWidth: 2.5,
+        backgroundColor: gradDia,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 6,
+        pointBackgroundColor: '#60a5fa',
+        pointBorderColor: '#070b14',
+        pointBorderWidth: 2,
+        pointHoverRadius: 8,
+        pointHoverBackgroundColor: '#93c5fd',
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 1200, easing: 'easeInOutQuart' },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false }, // custom tooltip
+      annotation: {}
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        border: { display: false },
+        ticks: {
+          color: '#475569',
+          font: { family: 'IBM Plex Mono', size: 12 }
+        }
+      },
+      y: {
+        min: 60,
+        max: 185,
+        grid: {
+          color: 'rgba(255,255,255,0.05)',
+          drawTicks: false,
+        },
+        border: { display: false, dash: [4,4] },
+        ticks: {
+          color: '#475569',
+          font: { family: 'IBM Plex Mono', size: 11 },
+          stepSize: 20,
+          padding: 8,
+        }
+      }
+    },
+    onHover: (e, elements) => {
+      const tt = document.getElementById('tooltip');
+      if (!elements.length) { tt.classList.remove('visible'); return; }
+      const i = elements[0].index;
+      document.getElementById('tt-date').textContent = labels[i];
+      document.getElementById('tt-sys').textContent = sys[i];
+      document.getElementById('tt-dia').textContent = dia[i];
+      const treatsEl = document.getElementById('tt-treats');
+      treatsEl.innerHTML = dayTreatments[i].map(t =>
+        `<div class="tt-treat" style="color:${treatColors[t]||'#94a3b8'}">${t}</div>`
+      ).join('');
+      tt.classList.add('visible');
+      // position tooltip
+      const rect = document.getElementById('bpChart').getBoundingClientRect();
+      let tx = e.native.clientX + 16;
+      let ty = e.native.clientY - 20;
+      if (tx + 200 > window.innerWidth) tx = e.native.clientX - 210;
+      tt.style.left = tx + 'px';
+      tt.style.top  = ty + 'px';
+    }
+  }
+});
+
+// Draw threshold lines manually via afterDraw
+Chart.register({
+  id: 'thresholds',
+  afterDraw(chart) {
+    const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+    [[140, 'rgba(248,113,113,0.25)', 'Seuil SYS 140'], [90, 'rgba(96,165,250,0.25)', 'Seuil DIA 90']].forEach(([val, color, lbl]) => {
+      const yPos = y.getPixelForValue(val);
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(left, yPos);
+      ctx.lineTo(right, yPos);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "10px 'IBM Plex Mono'";
+      ctx.fillStyle = color;
+      ctx.textAlign = 'right';
+      ctx.fillText(lbl, right - 4, yPos - 5);
+      ctx.restore();
+    });
+  }
+});
+
+document.addEventListener('mousemove', e => {
+  const tt = document.getElementById('tooltip');
+  if (!tt.classList.contains('visible')) return;
+});
+</script>
+
+
+</body></html>
